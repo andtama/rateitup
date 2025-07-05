@@ -5,21 +5,28 @@ session_start();
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
 
-    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $user = $result->fetch_assoc();
-
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        header("Location: index.php");
-        exit;
+    if ($password !== $confirm_password) {
+        $error = "Konfirmasi password tidak cocok.";
     } else {
-        $error = "Username atau password salah!";
+        $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $stmt->store_result();
+
+        if ($stmt->num_rows > 0) {
+            $error = "Username sudah digunakan. Silakan pilih yang lain.";
+        } else {
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $insert = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+            $insert->bind_param("ss", $username, $hashed_password);
+            $insert->execute();
+
+            $_SESSION['register_success'] = true;
+            header("Location: login.php");
+            exit;
+        }
     }
 }
 ?>
@@ -28,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Login User</title>
+    <title>Registrasi User</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light d-flex align-items-center" style="height: 100vh;">
@@ -38,15 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="col-md-5">
             <div class="card shadow rounded-4">
                 <div class="card-body p-4">
-                    <h4 class="mb-4 text-center">Login Akun</h4>
-
-                    <?php if (isset($_SESSION['register_success'])): ?>
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            Pendaftaran berhasil, silakan login.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        <?php unset($_SESSION['register_success']); ?>
-                    <?php endif; ?>
+                    <h4 class="mb-4 text-center">Buat Akun Baru</h4>
 
                     <?php if (isset($error)): ?>
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -66,11 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100">Login</button>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Konfirmasi Kata Sandi</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Daftar</button>
                     </form>
 
                     <p class="mt-3 text-center">
-                        Belum punya akun? <a href="register.php">Daftar di sini</a>
+                        Sudah punya akun? <a href="login.php">Login di sini</a>
                     </p>
                 </div>
             </div>
